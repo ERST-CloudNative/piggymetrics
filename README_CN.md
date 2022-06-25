@@ -7,6 +7,26 @@
 
 ![image](https://user-images.githubusercontent.com/4653664/175772378-6629d7e4-ced8-4abd-90f6-c706a6dc6675.png)
 
+### 访问应用
+
+登录Piggymetrics应用地址： http://gateway.ex.test
+
+> 提示：请将服务地址替换为您当前的服务地址
+
+![image](https://user-images.githubusercontent.com/4653664/175774202-cf16bd99-9b48-4049-a7fc-171d724cdc59.png)
+
+注册账户，如demotest/123456，跳过通知订阅。
+
+![image](https://user-images.githubusercontent.com/4653664/175774274-112bf056-43ff-484d-b090-c1aa8d880be1.png)
+
+点击"Get IN",然后依次添加`INCOME`\`EXPENSE`\`SAVINGS`信息
+
+![image](https://user-images.githubusercontent.com/4653664/175774388-5a3f9618-89e4-4de1-89b9-fc272beefcc9.png)
+
+然后点击“SAVECHANGES”
+
+![image](https://user-images.githubusercontent.com/4653664/175774408-be065ffe-51d9-447e-bdcd-f0cf86627d0e.png)
+
 
 ### 断路器
 

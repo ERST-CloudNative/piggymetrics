@@ -1,6 +1,14 @@
 
+### 服务发现
 
-### 断路器实验
+访问Eureka服务的地址： http://registry.ex.test/ ,并查看相关微服务是否已经注册成功。
+
+> 提示：请将服务地址替换为您当前的服务地址
+
+![image](https://user-images.githubusercontent.com/4653664/175772378-6629d7e4-ced8-4abd-90f6-c706a6dc6675.png)
+
+
+### 断路器
 
 ###### 操作一、创建用户
 

@@ -1,0 +1,89 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: notification-service
+  name: notification-service
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  selector:
+    project: piggymetrics
+    tier: backend
+    app: notification-service
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: notification-service
+  name: notification-service
+spec:
+  replicas: 1
+  strategy: 
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: backend
+      app: notification-service
+  template:
+    metadata:
+      labels:       
+        project: piggymetrics
+        tier: backend
+        app: notification-service
+    spec:
+      containers:
+      - env:
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        - name: MONGODB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_mongodb_password
+        - name: NOTIFICATION_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_service_password
+        - name: NOTIFICATION_EMAIL_HOST
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_host
+        - name: NOTIFICATION_EMAIL_PORT
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_port
+        - name: NOTIFICATION_EMAIL_USER
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_user
+        - name: NOTIFICATION_EMAIL_PASS
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_pass
+        ports:
+          - containerPort: 8000
+        image: 192.168.3.48:5000/sqshq/piggymetrics-notification-service:latest
+        name: notification-service
+        resources: {}
+      restartPolicy: Always
+status: {}

@@ -1,0 +1,82 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: gateway.ex.test
+    http:
+      paths:
+      - backend:
+          service:
+            name: gateway
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: frontend
+    app: gateway
+  name: gateway
+spec:
+  # comment or delete the following line if you want to use a LoadBalancer
+  type: ClusterIP 
+  # if your cluster supports it, uncomment the following to automatically create
+  # an external load-balanced IP for the frontend service.
+  # type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 4000
+    # comment or delete the following line if you want to use a LoadBalancer
+    # nodePort: 30080
+  selector:
+    project: piggymetrics
+    tier: frontend
+    app: gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  labels:
+    project: piggymetrics
+    tier: frontend
+    app: gateway
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: frontend
+      app: gateway
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        project: piggymetrics
+        tier: frontend
+        app: gateway
+    spec:
+      containers:
+      - name: gateway
+        env:
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        image: 192.168.3.48:5000/sqshq/piggymetrics-gateway:latest
+        
+        ports:
+        - containerPort: 4000
+      restartPolicy: Always

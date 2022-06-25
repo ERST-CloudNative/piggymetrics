@@ -1,0 +1,57 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-mongodb
+  labels:
+    project: piggymetrics
+    tier: database
+    app: auth-mongodb
+spec:
+  ports:
+  - name: mongo
+    port: 27017
+    targetPort: 27017
+  selector:
+    project: piggymetrics
+    tier: database
+    app: auth-mongodb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-mongodb
+  labels:
+    project: piggymetrics
+    tier: database
+    app: auth-mongodb
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: database
+      app: auth-mongodb
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        tier: database
+        app: auth-mongodb
+    spec:
+      containers:
+      - image: 192.168.3.48:5000/sqshq/piggymetrics-mongodb:latest
+        name: auth-mongodb
+        env:
+          - name: MONGODB_PASSWORD
+            valueFrom: 
+              secretKeyRef:
+                name: piggymetrics
+                key: auth_mongodb_password
+        ports:
+          - containerPort: 27017
+        resources: {}
+      restartPolicy: Always
+status: {}

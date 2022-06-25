@@ -1,0 +1,77 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: registry
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: registry.ex.test
+    http:
+      paths:
+      - backend:
+          service:
+            name: registry
+            port:
+              number: 8761
+        path: /
+        pathType: Prefix
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: registry
+  name: registry
+spec:
+  ports:
+  - name: http
+    port: 8761
+    targetPort: 8761
+  selector:
+    project: piggymetrics
+    tier: infrastructure
+    app: registry
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: registry
+  name: registry
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: infrastructure
+      app: registry
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        tier: infrastructure
+        app: registry
+    spec:
+      containers:
+      - env:
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        image: 192.168.3.48:5000/sqshq/piggymetrics-registry:latest
+        name: registry
+        ports:
+        - containerPort: 8761
+        resources: {}
+      restartPolicy: Always
+status: {}

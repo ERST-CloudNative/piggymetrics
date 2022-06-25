@@ -1,0 +1,63 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    trier: infrastructure
+    app: turbine-stream-service
+  name: turbine-stream-service
+spec:
+  ports:
+  - name: exposed
+    port: 8989
+    targetPort: 8989
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    project: piggymetrics
+    trier: infrastructure
+    app: turbine-stream-service
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    trier: infrastructure
+    app: turbine-stream-service
+  name: turbine-stream-service
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      trier: infrastructure
+      app: turbine-stream-service
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        trier: infrastructure
+        app: turbine-stream-service
+    spec:
+      containers:
+      - env:
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        image: 192.168.3.48:5000/sqshq/piggymetrics-turbine-stream-service:latest
+        name: turbine-stream-service
+        ports:
+        - containerPort: 8989
+        - containerPort: 8080
+        resources: {}
+      restartPolicy: Always
+status: {}

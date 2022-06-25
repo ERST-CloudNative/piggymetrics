@@ -1,4 +1,3 @@
-
 ### 服务发现
 
 访问Eureka服务的地址： http://registry.ex.test/ ,并查看相关微服务是否已经注册成功。
@@ -87,8 +86,83 @@ curl --location --request PUT --X PUT 'http://gateway.ex.test/accounts/current' 
 ![image](https://user-images.githubusercontent.com/4653664/175772202-c717450a-c47f-4575-97c9-19599cc69e2d.png)
 
 
+### Spring Cloud组件高可用
 
+###### 扩容Spring Cloud Config组件
 
+```
+[root@workstation ~]# kubectl -n demo scale deployment config --replicas=2
+deployment.apps/config scaled
+
+[root@workstation ~]# kubectl -n demo get pods | grep config
+config-7b9cbf4c8b-8vhs2                  1/1     Running   0               36s
+config-7b9cbf4c8b-cgnd6                  1/1     Running   0               4h52m
+```
+###### 扩容Spring Cloud Gateway组件
+
+```
+[root@workstation ~]# kubectl -n demo scale deployment gateway --replicas=2
+deployment.apps/gateway scaled
+[root@workstation ~]# kubectl -n demo get pods | grep gateway
+gateway-58c776d459-rqjvb                 1/1     Running   0               2m10s
+gateway-58c776d459-xv9pj                 1/1     Running   0               4h54m
+```
+###### 扩容Spring Cloud Eureka组件
+
+更新`registry/src/main/resources/bootstrap.yml`文件内容如下:
+
+```
+spring:
+  application:
+    name: registry
+  cloud:
+    config:
+      uri: http://config:8888
+      fail-fast: true
+      password: ${CONFIG_SERVICE_PASSWORD}
+      username: user
+
+eureka:
+  instance:
+    prefer-ip-address: true
+  client:
+    registerWithEureka: true
+    fetchRegistry: true
+    server:
+      waitTimeInMsWhenSyncEmpty: 0
+```
+
+构建新的镜像
+
+```
+[root@workstation registry]# docker build . -t=192.168.3.48:5000/sqshq/piggymetrics-registry:v2
+
+[root@workstation registry]# docker push 192.168.3.48:5000/sqshq/piggymetrics-registry:v2
+```
+
+更新镜像
+
+```
+[root@workstation ~]# kubectl -n demo set image deployment/registry registry=192.168.3.48:5000/sqshq/piggymetrics-registry:v2
+deployment.apps/registry image updated
+
+```
+
+扩容
+
+```
+[root@workstation ~]# kubectl -n demo scale deployment registry --replicas=2
+deployment.apps/registry scaled
+[root@workstation ~]# kubectl -n demo get pods | registry
+-bash: registry: command not found
+[root@workstation ~]# kubectl -n demo get pods | grep registry
+registry-7f877bc696-r6w2h                1/1     Running   0              24s
+registry-7f877bc696-vvtjz                1/1     Running   0              60s
+```
+
+访问Eureka服务地址验证是否可以实现Eureka相互注册高可用
+
+![image](https://user-images.githubusercontent.com/4653664/175775830-9b001221-ecb6-426c-ae1c-7ab2de837ba0.png)
 
 
 

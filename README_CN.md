@@ -56,6 +56,7 @@ Dockerfile中的内容概述如下：
 docker build . -t="192.168.3.48:5000/sqshq/piggymetrics-account-service:latest"
 ```
 > 注意: 这里的镜像名称需要改造成自身环境的地址
+> 这里可以根据需要应用自己的命名规则，如RegistryAddress/UserName/ProjectName-ServiceName:Version
 
 3. 推送镜像到镜像仓库
 

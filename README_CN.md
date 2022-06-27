@@ -1,5 +1,67 @@
 ### 容器化改造
 
+整个系统涉及的组件有：
+Spring Cloud:
+- auth-service
+- config
+- gateway
+- registry
+- turbine-stream-service
+
+业务系统:
+- account-service
+- notification-service
+- statistics-service
+
+中间件：
+- mongodb
+- rabbitmq
+
+默认在每个目录下都有一个Dockerfile文件，这里示例一个服务的容器化改造过程：
+
+1. 构建Java应用
+
+```
+cd account-service
+mvn package
+
+```
+
+2. 构建容器镜像
+
+可以先查看下当前的Dockerfile，实际容器化改造过程中在，这个Dockerfile是需要实施人员来完成编写的。
+
+```
+# piggymetrics/account-service/Dockerfile
+
+FROM java:8-jre
+MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+
+ADD ./target/account-service.jar /app/
+CMD ["java", "-Xmx200m", "-jar", "/app/account-service.jar"]
+
+EXPOSE 6000
+
+```
+Dockerfile中的内容概述如下：
+- 引用基础镜像为java:8-jre
+- 声明镜像维护人员信息
+- 将编译的jar包添加到指定目录
+- 声明容器运行时执行的命令
+- 声明容器对外暴露的接口
+
+接下里，我们来构建打包镜像
+
+```
+docker build . -t="192.168.3.48:5000/sqshq/piggymetrics-account-service:latest"
+```
+> 注意: 这里的镜像名称需要改造成自身环境的地址
+
+3. 推送镜像到镜像仓库
+
+```
+docker push 192.168.3.48:5000/sqshq/piggymetrics-account-service:latest
+```
 
 
 ### K8S资源化改造

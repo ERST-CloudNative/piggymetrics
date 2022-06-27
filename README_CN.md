@@ -9,13 +9,998 @@
 ```
 # piggymetrics/kubernetes/0-secrets.yaml
 
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: piggymetrics
+type: Opaque
+data:  #Replace default values. This is only meant to create the structure.
+  config_service_password: Q09ORklHX1NFUlZJQ0VfUEFTU1dPUkQ=
+  auth_mongodb_password: QVVUSF9NT05HT0RCX1BBU1NXT1JE
+  notification_service_password: Tk9USUZJQ0FUSU9OX1NFUlZJQ0VfUEFTU1dPUkQ=
+  notification_mongodb_password: Tk9USUZJQ0FUSU9OX01PTkdPREJfUEFTU1dPUkQ=
+  statistics_service_password: U1RBVElTVElDU19TRVJWSUNFX1BBU1NXT1JE
+  statistics_mongodb_password: U1RBVElTVElDU19NT05HT0RCX1BBU1NXT1JE
+  account_service_password: QUNDT1VOVF9TRVJWSUNFX1BBU1NXT1JE
+  account_mongodb_password: QUNDT1VOVF9NT05HT0RCX1BBU1NXT1JE
+  notification_email_host: c210cC5nbWFpbC5jb20=
+  notification_email_port: NDY1
+  notification_email_user: ZGV2LXVzZXI=
+  notification_email_pass: ZGV2LXBhc3N3b3Jk
 
+```
+
+> 默认相关敏感数据已经Base64加密。
+
+2. 创建RabbitMQ资源文件
+
+```
+# piggymetrics/kubernetes/1-rabbitmq-service.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: rabbitmq
+  name: rabbitmq
+spec:
+  ports:
+  - name: http
+    port: 15672
+    targetPort: 15672
+  - name: amqp
+    port: 5672
+    targetPort: 5672
+  selector:
+    project: piggymetrics
+    tier: infrastructure
+    app: rabbitmq
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: rabbitmq
+  name: rabbitmq
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: infrastructure
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        tier: infrastructure
+        app: rabbitmq
+    spec:
+      containers:
+      - image: 192.168.3.48:5000/sqshq/rabbitmq:3-management
+        name: rabbitmq
+        ports:
+        - containerPort: 15672
+        - containerPort: 5672
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+```
+> 注意： 需要替换yaml文件中的镜像为当前使用的镜像，如有需要，也可以为该容器配置资源配额，如1C/4G。另外，如有需要可以使用https://www.rabbitmq.com/kubernetes/operator/operator-overview.html
+
+3. 配置中心
+
+```
+# piggymetrics/kubernetes/2-config-service.yaml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: config
+  name: config
+spec:
+  ports:
+  - name: http
+    port: 8888
+    targetPort: 8888
+  selector:
+    project: piggymetrics
+    tier: infrastructure
+    app: config
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: config
+  name: config
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: infrastructure
+      app: config
+  template:
+    metadata:
+      labels:    
+        project: piggymetrics
+        tier: infrastructure
+        app: config
+    spec:
+      containers:
+      - env:
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        image: 192.168.3.48:5000/sqshq/piggymetrics-config:latest
+        name: config
+        ports:
+        - containerPort: 8888
+        resources: {}
+      restartPolicy: Always
+status: {}
+```
+> 注意： 需要替换yaml文件中的镜像为当前使用的镜像
+
+
+4. 服务发现
+
+```
+# piggymetrics/kubernetes/3-registry-service.yaml
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: registry
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: registry.ex.test
+    http:
+      paths:
+      - backend:
+          service:
+            name: registry
+            port:
+              number: 8761
+        path: /
+        pathType: Prefix
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: registry
+  name: registry
+spec:
+  ports:
+  - name: http
+    port: 8761
+    targetPort: 8761
+  selector:
+    project: piggymetrics
+    tier: infrastructure
+    app: registry
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: registry
+  name: registry
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: infrastructure
+      app: registry
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        tier: infrastructure
+        app: registry
+    spec:
+      containers:
+      - env:
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        image: 192.168.3.48:5000/sqshq/piggymetrics-registry:latest
+        name: registry
+        ports:
+        - containerPort: 8761
+        resources: {}
+      restartPolicy: Always
+status: {}
+```
+> 注意： 需要替换yaml文件中的镜像为当前使用的镜像
+
+5. 网关
+
+```
+# piggymetrics/kubernetes/4-gateway-service.yaml
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: gateway.ex.test
+    http:
+      paths:
+      - backend:
+          service:
+            name: gateway
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: frontend
+    app: gateway
+  name: gateway
+spec:
+  # comment or delete the following line if you want to use a LoadBalancer
+  type: ClusterIP 
+  # if your cluster supports it, uncomment the following to automatically create
+  # an external load-balanced IP for the frontend service.
+  # type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 4000
+    # comment or delete the following line if you want to use a LoadBalancer
+    # nodePort: 30080
+  selector:
+    project: piggymetrics
+    tier: frontend
+    app: gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  labels:
+    project: piggymetrics
+    tier: frontend
+    app: gateway
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: frontend
+      app: gateway
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        project: piggymetrics
+        tier: frontend
+        app: gateway
+    spec:
+      containers:
+      - name: gateway
+        env:
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        image: 192.168.3.48:5000/sqshq/piggymetrics-gateway:latest
+        
+        ports:
+        - containerPort: 4000
+      restartPolicy: Always
+
+```
+> 注意： 需要替换yaml文件中的镜像为当前使用的镜像
+> 另外，ingress的配置也需要根据自身环境的情况进行调整。
+
+6. Auth服务
+
+```
+# piggymetrics/kubernetes/5-auth-mongodb-service.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-mongodb
+  labels:
+    project: piggymetrics
+    tier: database
+    app: auth-mongodb
+spec:
+  ports:
+  - name: mongo
+    port: 27017
+    targetPort: 27017
+  selector:
+    project: piggymetrics
+    tier: database
+    app: auth-mongodb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-mongodb
+  labels:
+    project: piggymetrics
+    tier: database
+    app: auth-mongodb
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: database
+      app: auth-mongodb
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        tier: database
+        app: auth-mongodb
+    spec:
+      containers:
+      - image: 192.168.3.48:5000/sqshq/piggymetrics-mongodb:latest
+        name: auth-mongodb
+        env:
+          - name: MONGODB_PASSWORD
+            valueFrom: 
+              secretKeyRef:
+                name: piggymetrics
+                key: auth_mongodb_password
+        ports:
+          - containerPort: 27017
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+```
+
+```
+# piggymetrics/kubernetes/6-auth-service.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: auth-service
+  name: auth-service
+spec:
+  ports:
+  - name: http
+    port: 5000
+    targetPort: 5000
+  selector:
+    project: piggymetrics
+    tier: infrastructure
+    app: auth-service
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: infrastructure
+    app: auth-service
+  name: auth-service
+spec:
+  replicas: 1
+  strategy: 
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: infrastructure
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        tier: infrastructure
+        app: auth-service
+    spec:
+      containers:
+      - env:
+        - name: ACCOUNT_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: account_service_password
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        - name: MONGODB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: auth_mongodb_password
+        - name: NOTIFICATION_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_service_password
+        - name: STATISTICS_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: statistics_service_password
+        image: 192.168.3.48:5000/sqshq/piggymetrics-auth-service:latest
+        name: auth-service
+        ports:
+          - containerPort: 5000
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+```
+
+> 注意： 需要替换yaml文件中的镜像为当前使用的镜像
+
+7. Account服务
+
+```
+# piggymetrics/kubernetes/7-account-mongodb-service.yaml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: account-mongodb
+  labels:
+    project: piggymetrics
+    tier: database
+    app: account-mongodb
+spec:
+  ports:
+  - name: mongo
+    port: 27017
+    targetPort: 27017
+  selector:
+    project: piggymetrics
+    tier: database
+    app: account-mongodb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: account-mongodb
+  labels:
+    project: piggymetrics
+    tier: database
+    app: account-mongodb
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: database
+      app: account-mongodb
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        tier: database
+        app: account-mongodb
+    spec:
+      containers:
+      - name: account-mongodb
+        env:
+        - name: INIT_DUMP
+          value: account-service-dump.js
+        - name: MONGODB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: account_mongodb_password
+        ports:
+          - containerPort: 27017
+        image: 192.168.3.48:5000/sqshq/piggymetrics-mongodb:latest
+      restartPolicy: Always
+```
+
+```
+# piggymetrics/kubernetes/8-account-service.yaml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: account-service
+  name: account-service
+spec:
+  ports:
+  - name: http
+    port: 6000
+    targetPort: 6000
+  selector:
+    project: piggymetrics
+    tier: backend
+    app: account-service
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: account-service 
+  name: account-service
+spec:
+  replicas: 1
+  strategy: 
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: backend
+      app: account-service
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        tier: backend
+        app: account-service
+    spec:
+      containers:
+      - env:
+        - name: ACCOUNT_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: account_service_password
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        - name: MONGODB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: account_mongodb_password
+        ports:
+          - containerPort: 6000
+        image: 192.168.3.48:5000/sqshq/piggymetrics-account-service:latest
+        name: account-service
+      restartPolicy: Always
+
+```
+> 注意： 需要替换yaml文件中的镜像为当前使用的镜像
+
+8. Statistics服务
+
+```
+# piggymetrics/kubernetes/9-statistics-mongodb-service.yaml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: statistics-mongodb
+  labels:
+    project: piggymetrics
+    tier: database
+    app: statistics-mongodb
+spec:
+  ports:
+  - name: mongo
+    port: 27017
+    targetPort: 27017
+  selector:
+    project: piggymetrics
+    tier: database
+    app: statistics-mongodb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: database
+    app: statistics-mongodb
+  name: statistics-mongodb
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: database
+      app: statistics-mongodb
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        tier: database
+        app: statistics-mongodb
+    spec:
+      containers:
+      - env:
+        - name: MONGODB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: statistics_mongodb_password
+        ports:
+          - containerPort: 27017
+        image: 192.168.3.48:5000/sqshq/piggymetrics-mongodb:latest
+        name: statistics-mongodb
+        resources: {}
+      restartPolicy: Always
+status: {}
+```
+
+```
+# piggymetrics/kubernetes/A-statistics-service.yaml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: statistics-service
+  name: statistics-service
+spec:
+  ports:
+  - name: http
+    port: 7000
+    targetPort: 7000
+  selector:
+    project: piggymetrics
+    tier: backend
+    app: statistics-service
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: statistics-service
+  name: statistics-service
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: backend
+      app: statistics-service
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        tier: backend
+        app: statistics-service
+    spec:
+      containers:
+      - env:
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        - name: MONGODB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: statistics_mongodb_password
+        - name: STATISTICS_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: statistics_service_password
+        ports:
+          - containerPort: 7000
+        image: 192.168.3.48:5000/sqshq/piggymetrics-statistics-service:latest
+        name: statistics-service
+        resources: {}
+      restartPolicy: Always
+status: {}
+```
+> 注意： 需要替换yaml文件中的镜像为当前使用的镜像
+
+9. notification服务
+
+```
+# piggymetrics/kubernetes/B-notification-mongodb-service.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-mongodb
+  labels:
+    project: piggymetrics
+    tier: database
+    app: notification-mongodb
+spec:
+  ports:
+  - name: mongo
+    port: 27017
+    targetPort: 27017
+  selector:
+    project: piggymetrics
+    tier: database
+    app: notification-mongodb
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: database
+    app: notification-mongodb
+  name: notification-mongodb
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: database
+      app: notification-mongodb
+  template:
+    metadata:
+      labels:    
+        project: piggymetrics
+        tier: database
+        app: notification-mongodb
+    spec:
+      containers:
+      - env:
+        - name: MONGODB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_mongodb_password
+        ports:
+          - containerPort: 27017
+        image: 192.168.3.48:5000/sqshq/piggymetrics-mongodb:latest
+        name: notification-mongodb
+        resources: {}
+      restartPolicy: Always
+status: {}
 
 ```
 
 
+```
+# piggymetrics/kubernetes/C-notification-service.yaml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: notification-service
+  name: notification-service
+spec:
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+  selector:
+    project: piggymetrics
+    tier: backend
+    app: notification-service
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    tier: backend
+    app: notification-service
+  name: notification-service
+spec:
+  replicas: 1
+  strategy: 
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      tier: backend
+      app: notification-service
+  template:
+    metadata:
+      labels:       
+        project: piggymetrics
+        tier: backend
+        app: notification-service
+    spec:
+      containers:
+      - env:
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        - name: MONGODB_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_mongodb_password
+        - name: NOTIFICATION_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_service_password
+        - name: NOTIFICATION_EMAIL_HOST
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_host
+        - name: NOTIFICATION_EMAIL_PORT
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_port
+        - name: NOTIFICATION_EMAIL_USER
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_user
+        - name: NOTIFICATION_EMAIL_PASS
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: notification_email_pass
+        ports:
+          - containerPort: 8000
+        image: 192.168.3.48:5000/sqshq/piggymetrics-notification-service:latest
+        name: notification-service
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+```
+> 注意： 需要替换yaml文件中的镜像为当前使用的镜像
 
 
+10. turbine stream服务
+
+```
+# piggymetrics/kubernetes/E-turbine-stream-service.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    project: piggymetrics
+    trier: infrastructure
+    app: turbine-stream-service
+  name: turbine-stream-service
+spec:
+  ports:
+  - name: exposed
+    port: 8989
+    targetPort: 8989
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    project: piggymetrics
+    trier: infrastructure
+    app: turbine-stream-service
+status:
+  loadBalancer: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    project: piggymetrics
+    trier: infrastructure
+    app: turbine-stream-service
+  name: turbine-stream-service
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      project: piggymetrics
+      trier: infrastructure
+      app: turbine-stream-service
+  template:
+    metadata:
+      labels:
+        project: piggymetrics
+        trier: infrastructure
+        app: turbine-stream-service
+    spec:
+      containers:
+      - env:
+        - name: CONFIG_SERVICE_PASSWORD
+          valueFrom: 
+            secretKeyRef:
+              name: piggymetrics
+              key: config_service_password
+        image: 192.168.3.48:5000/sqshq/piggymetrics-turbine-stream-service:latest
+        name: turbine-stream-service
+        ports:
+        - containerPort: 8989
+        - containerPort: 8080
+        resources: {}
+      restartPolicy: Always
+status: {}
+```
+> 注意： 需要替换yaml文件中的镜像为当前使用的镜像
 
 
 ### 服务发现

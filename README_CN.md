@@ -1066,6 +1066,26 @@ status: {}
 > 注意： 需要替换yaml文件中的镜像为当前使用的镜像
 
 
+11. 部署系统
+
+首先创建项目空间demo
+
+```
+
+cd piggymetrics/kubernetes
+
+kubectl create ns demo
+
+```
+
+开始部署
+
+```
+kubectl -n demo apply -f .
+
+```
+
+
 ### 服务发现
 
 访问Eureka服务的地址： http://registry.ex.test/ ,并查看相关微服务是否已经注册成功。

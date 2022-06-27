@@ -1,6 +1,7 @@
 ### 容器化改造
 
 整个系统涉及的组件有：
+
 Spring Cloud:
 - auth-service
 - config

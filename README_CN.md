@@ -1,3 +1,23 @@
+### 容器化改造
+
+
+
+### K8S资源化改造
+
+1. 创建系统所需的secret资源
+
+```
+# piggymetrics/kubernetes/0-secrets.yaml
+
+
+
+```
+
+
+
+
+
+
 ### 服务发现
 
 访问Eureka服务的地址： http://registry.ex.test/ ,并查看相关微服务是否已经注册成功。
